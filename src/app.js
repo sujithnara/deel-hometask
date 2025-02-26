@@ -148,4 +148,41 @@ app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
     res.json({message: 'Deposit successful', balance: client.balance})
 })
 
+/**
+ * @returns the profession that earned the most money (sum of jobs paid) for any contractor who worked within the specified time range
+ */
+app.get('/admin/best-profession', async (req, res) => {
+    const {Job, Profile, Contract} = req.app.get('models')
+    const {start, end} = req.query
+
+    const bestProfession = await Job.findAll({
+        attributes: [
+            [sequelize.col('Contract.Contractor.profession'), 'profession'],
+            [sequelize.fn('sum', sequelize.col('price')), 'total_earned']
+        ],
+        include: [{
+            model: Contract,
+            include: [{
+                model: Profile,
+                as: 'Contractor',
+                attributes: []
+            }],
+            attributes: []
+        }],
+        where: {
+            paid: true,
+            paymentDate: {
+                [Op.between]: [new Date(start), new Date(end)]
+            }
+        },
+        group: ['Contract.Contractor.profession'],
+        order: [[sequelize.literal('total_earned'), 'DESC']],
+        limit: 1
+    })
+
+    if (!bestProfession.length) return res.status(404).json({error: 'No profession found in the specified date range'})
+
+    res.json(bestProfession[0])
+})
+
 module.exports = app;
