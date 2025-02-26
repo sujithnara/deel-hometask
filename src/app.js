@@ -109,4 +109,43 @@ app.post('/jobs/:job_id/pay', getProfile, async (req, res) => {
     res.json({message: 'Payment successful'})
 })
 
+/**
+ * @returns deposit money into a client's balance
+ */
+app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
+    const {Profile, Job, Contract} = req.app.get('models')
+    const {userId} = req.params
+    const {amount} = req.body
+
+    if (req.profile.type !== 'client') return res.status(403).json({error: 'Only clients can deposit money'})
+
+    const client = await Profile.findOne({where: {id: userId}})
+    if (!client) return res.status(404).json({error: 'Client not found'})
+
+    const unpaidJobs = await Job.findAll({
+        include: [{
+            model: Contract,
+            where: {
+                ClientId: userId,
+                status: 'in_progress'
+            }
+        }],
+        where: {
+            paid: {
+                [Op.not]: true
+            }
+        }
+    })
+
+    const totalUnpaid = unpaidJobs.reduce((sum, job) => sum + job.price, 0)
+    const maxDeposit = totalUnpaid * 0.25
+
+    if (amount > maxDeposit) return res.status(400).json({error: `Cannot deposit more than 25% of total unpaid jobs. Maximum deposit allowed: ${maxDeposit}`})
+
+    client.balance += amount
+    await client.save()
+
+    res.json({message: 'Deposit successful', balance: client.balance})
+})
+
 module.exports = app;
