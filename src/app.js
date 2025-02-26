@@ -72,4 +72,41 @@ app.get('/jobs/unpaid', getProfile, async (req, res) => {
     res.json(jobs)
 })
 
+/**
+ * @returns pay for a job
+ */
+app.post('/jobs/:job_id/pay', getProfile, async (req, res) => {
+    const {Job, Contract, Profile} = req.app.get('models')
+    const {job_id} = req.params
+    const job = await Job.findOne({
+        where: {id: job_id},
+        include: [{
+            model: Contract,
+            include: [{model: Profile, as: 'Client'}, {model: Profile, as: 'Contractor'}]
+        }]
+    })
+    if (!job) return res.status(404).end()
+    if (job.paid) return res.status(400).json({error: 'Job is already paid'})
+
+    const client = job.Contract.Client
+    const contractor = job.Contract.Contractor
+
+    if (client.id !== req.profile.id) return res.status(403).end()
+    if (client.balance < job.price) return res.status(400).json({error: 'Insufficient balance'})
+
+    // Perform the payment
+    await sequelize.transaction(async (t) => {
+        client.balance -= job.price
+        contractor.balance += job.price
+        job.paid = true
+        job.paymentDate = new Date()
+
+        await client.save({transaction: t})
+        await contractor.save({transaction: t})
+        await job.save({transaction: t})
+    })
+
+    res.json({message: 'Payment successful'})
+})
+
 module.exports = app;
