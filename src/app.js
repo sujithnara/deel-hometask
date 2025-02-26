@@ -9,8 +9,7 @@ app.set('sequelize', sequelize)
 app.set('models', sequelize.models)
 
 /**
- * FIX ME!
- * @returns contract by id
+ * 1. Return the contract only if it belongs to the profile making the request.
  */
 app.get('/contracts/:id',getProfile ,async (req, res) =>{
     const {Contract} = req.app.get('models')
@@ -27,7 +26,7 @@ app.get('/contracts/:id',getProfile ,async (req, res) =>{
 })
 
 /**
- * @returns list of contracts belonging to a user (client or contractor) and non-terminated
+ * 2. Returns a list of contracts belonging to a user (client or contractor). The list should only contain non-terminated contracts.
  */
 app.get('/contracts', getProfile, async (req, res) => {
     const {Contract} = req.app.get('models')
@@ -47,7 +46,7 @@ app.get('/contracts', getProfile, async (req, res) => {
 })
 
 /**
- * @returns list of unpaid jobs for a user (client or contractor) but only for active contracts
+ * 3. Get all unpaid jobs for a user (**_either_** a client or contractor), but only for **_active contracts_**.
  */
 app.get('/jobs/unpaid', getProfile, async (req, res) => {
     const {Contract, Job} = req.app.get('models')
@@ -73,7 +72,7 @@ app.get('/jobs/unpaid', getProfile, async (req, res) => {
 })
 
 /**
- * @returns pay for a job
+ * 4. Pay for a job. A client can only pay if their balance is greater than or equal to the amount due. The payment amount should be moved from the client's balance to the contractor's balance.
  */
 app.post('/jobs/:job_id/pay', getProfile, async (req, res) => {
     const {Job, Contract, Profile} = req.app.get('models')
@@ -110,7 +109,7 @@ app.post('/jobs/:job_id/pay', getProfile, async (req, res) => {
 })
 
 /**
- * @returns deposit money into a client's balance
+ * 5. Deposit money into a client's balance. A client cannot deposit more than 25% of the total of jobs to pay at the time of deposit.
  */
 app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
     const {Profile, Job, Contract} = req.app.get('models')
@@ -149,7 +148,7 @@ app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
 })
 
 /**
- * @returns the profession that earned the most money (sum of jobs paid) for any contractor who worked within the specified time range
+ * 6. Returns the profession that earned the most money (sum of jobs paid) for any contractor who worked within the specified time range.
  */
 app.get('/admin/best-profession', async (req, res) => {
     const {Job, Profile, Contract} = req.app.get('models')
@@ -186,7 +185,7 @@ app.get('/admin/best-profession', async (req, res) => {
 })
 
 /**
- * @returns the clients who paid the most for jobs within the specified time period
+ * 7. Returns the clients who paid the most for jobs within the specified time period. The `limit` query parameter should be applied, and the default limit is 2.
  */
 app.get('/admin/best-clients', async (req, res) => {
     const {Job, Profile, Contract} = req.app.get('models')
