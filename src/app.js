@@ -185,4 +185,46 @@ app.get('/admin/best-profession', async (req, res) => {
     res.json(bestProfession[0])
 })
 
+/**
+ * @returns the clients who paid the most for jobs within the specified time period
+ */
+app.get('/admin/best-clients', async (req, res) => {
+    const {Job, Profile, Contract} = req.app.get('models')
+    const {start, end, limit = 2} = req.query
+
+    const bestClients = await Job.findAll({
+        attributes: [
+            [sequelize.col('Contract.Client.id'), 'id'],
+            [sequelize.fn('CONCAT', 
+                sequelize.col('Contract.Client.firstName'), 
+                ' ', 
+                sequelize.col('Contract.Client.lastName')
+            ), 'fullName'],
+            [sequelize.fn('sum', sequelize.col('price')), 'paid']
+        ],
+        include: [{
+            model: Contract,
+            attributes: [],
+            include: [{
+                model: Profile,
+                as: 'Client',
+                attributes: []
+            }]
+        }],
+        where: {
+            paid: true,
+            paymentDate: {
+                [Op.between]: [new Date(start), new Date(end)]
+            }
+        },
+        group: ['Contract.Client.id', 'Contract.Client.firstName', 'Contract.Client.lastName'],
+        order: [[sequelize.literal('paid'), 'DESC']],
+        limit: parseInt(limit)
+    })
+
+    if (!bestClients.length) return res.status(404).json({error: 'No clients found in the specified date range'})
+
+    res.json(bestClients)
+})
+
 module.exports = app;
